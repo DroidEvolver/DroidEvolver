@@ -1,0 +1,21 @@
+App buffer generation
+App buffer not exists
+App buffer initialization
+(10477, 14327) (500, 14327) <class 'scipy.sparse.csr.csr_matrix'>
+Start evolving
+size of test dataset 11566 11566 500
+<type 'list'> <type 'list'> 500
+all models are aged 2859
+number of update 2069 2069
+Number of update with wrong pseudo labels 328
+Evolving Process Duration takes  6.56578230858  s
+All process takes  531.420182943  s
+evaluating predictions
+<type 'numpy.ndarray'> 11566
+all 11566 right 10524 n 5789 p: 5777 tn 5468 tp 5056 fn 721 fp 321
+model pool accuracy:  90.99 tpr:  87.52 fpr:  5.54
+500 500
+original test accuracy [0.8957288637757301, 0.9171710163354874, 0.9106000363826752, 0.9032509103417397, 0.9086979106068611]
+pool accuracy [90.99]
+pool fscore [90.66]
+pool precision [94.03]
