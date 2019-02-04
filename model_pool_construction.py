@@ -1,7 +1,5 @@
 '''
-To use: python with_true_label_train.py --starting 2011 
-
-GOAL: generate the original detection model for the starting year (applying all data from the starting year as training data)
+GOAL: generate the initial detection model for the starting year
 '''
 import numpy as np
 import scipy
@@ -23,12 +21,11 @@ import argparse
 def main():
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--starting', type=int, help='directory for initialization data') # to use = args.past
+	parser.add_argument('--starting', type=int, help='directory for initialization data')
 	args = parser.parse_args()
 
 	starting_year = args.starting
-
-
+	
 	X_train,Y_train=load_svmlight_file(str(starting_year))
 	print 'X_train data shape' , type(X_train), X_train.shape
 
