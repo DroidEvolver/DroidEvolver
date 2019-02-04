@@ -16,7 +16,7 @@ Upcoming:
  
  Pylibol, scipy == 1.1.0, numpy ==1.15.2
 
-Instruction:
+To use:
 
 1. Model pool construction
 
