@@ -1,6 +1,5 @@
 # DroidEvolver
-We would like to demonstrate that this is only the raw version of the code for the core modules of DroidEvolver. We are doing code cleanup and adding comments to improve
-code readibility. All code will be uploaded if our paper is accepted.
+We would like to demonstrate that this is only the raw version of the code for the core modules of DroidEvolver. We are doing code cleanup and adding comments to improve code readability. All code will be uploaded soon.
 
 Available code:
 
