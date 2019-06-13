@@ -1,3 +1,9 @@
+'''
+Use the model pool initialized with 2011 apps to detect malware from apps developed in 2012, 2013, 2014, 2015, 2016
+Model pool and feature set (i.e., feature_set.pkl) are evolved during detection.
+
+'''
+
 import numpy as np
 import scipy
 from scipy.stats import logistic
@@ -22,6 +28,56 @@ class app(object):
 		self.a = a
 		self.y = y
 		self.pl = pl
+
+def extract_benign(filedir):
+
+	app_feature = pkl.load(open(filedir + '.feature','rb'))
+
+	result = []
+	result.append('-1 ')
+	new = []
+	for i in range(len(features)):
+		if features[i] in app_feature:
+			result.append(str(i+1) + ':1 ')
+
+	for item in app_feature:
+		if item not in features: # this is a new feature, store new features in advance to save time
+			p = 1
+			# append the new feature to the data
+			# the model won't process this new feature unless update 
+			# the model will only process the first |len(features)| features
+			result.append(str(len(features) + p) + ':1 ') 
+			new.append(item)
+			p += 1
+
+	return result, new
+
+
+
+def extract_malicious(filedir):
+
+	app_feature = pkl.load(open(filedir + '.feature','rb'))
+
+	result = []
+	result.append('1 ')
+	new = []
+
+	for i in range(len(features)):
+		if features[i] in app_feature:
+			result.append(str(i+1) + ':1 ')
+
+	for item in app_feature:
+		if item not in features: # this is a new feature
+			p = 1
+			# append the new feature to the data
+			# the model won't process this new feature unless update 
+			# the model will only process the first |len(features)| features
+			# if this app is a drifting app, the new identified feature will be added into feature_set.pkl
+			result.append(str(len(features) + p) + ':1 ') 
+			new.append(item)
+			p += 1
+
+	return result, new
 
 
 def evaluation(Y_test, instances):
@@ -90,7 +146,7 @@ def all_model_label(i, age_threshold_low, age_threshold_up):
 	for j in xrange(len(clfs)):
 		if age_threshold_low <= p_values[i][j] <= age_threshold_up: # not an aged model, can vote
 			young += confidences[i][j]
-			y_marker += 1
+			y_marker += 1 # number of young model
 
 		else: # this is an aged model, need to be updated
 			aged += confidences[i][j]
@@ -127,7 +183,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--past', type=int, help='past year')
 	parser.add_argument('--current', type=int, help='current year')
-	parser.add_argument('--starting', type=int, help='starting year') 
+	parser.add_argument('--starting', type=int, help='starting year') # initialization year = 2011
 	parser.add_argument('--low', type=float, help='low threshold value')
 	parser.add_argument('--high', type=float, help='high threshold value')
 	parser.add_argument('--buffer', type=int, help = 'buffer size value')
@@ -139,6 +195,8 @@ def main():
 	age_threshold_up = args.high
 
 
+	global features
+	features = pkl.load(open('feature_set.pkl','rb'))
 
 	whole_directory = './'+ str(args.starting) + 'train/'
 	current_directory = str(age_threshold_low) + '_' + str(age_threshold_up) + '_' + str(buffer_size) + '/' 
@@ -146,39 +204,22 @@ def main():
 	if not os.path.exists(checkpoint_dir):
 		os.makedirs(checkpoint_dir)
 
-	# record all evolving result to a file
-	Result = open(whole_directory + str(args.starting) + '.evolving_result','a')
-	evolving_result = []
-	evolving_result.append(str(args.past) + ' ' + str(args.current) + ' ' + str(age_threshold_low) + ' ' + str(age_threshold_up) + ' ' + str(buffer_size) + ' ' + str(model_number) + ' ')
-	
-
-	print 'Loading data from ', args.past # old dataset
-	X_train,Y_train=load_svmlight_file( str(args.past))
-	print 'X_train data shape' , type(X_train), X_train.shape
-
-	print 'Loading test data from ', args.current # new dataset
-	X_test,Y_test=load_svmlight_file(str(args.current))
-	X_testt,Y_testt=load_svmlight_file( str(args.current))
-
-	print 'X_test data shape', type(X_test), X_test.shape
-	xtest_dense = scipy.sparse.csr_matrix(X_testt).todense()
-	print 'X_test', xtest_dense.shape
 
 	global clfs
 
 	clfs = [PA1(), OGD(), AROW(), RDA(), ADA_FOBOS()]
-
-
 	print 'model pool size: ', len(clfs)
-	ori_train_acc, ori_test_acc, weights, pool_acc, pool_fscore, pool_precision, pool_tpr, pool_fnr, pool_fpr, pool_difference = ([] for i in range(10))
+
+	ori_train_acc, ori_test_acc, weights, pool_acc, pool_fscore, pool_precision, pool_tpr, pool_fnr, pool_fpr, pool_difference = ([] for list_number in range(10))
 
 	print 'Loading trained model from ', args.past
 
-	if args.starting == args.past: # copy the original detection model into checkpoint_dir
+	if args.starting == args.past: # copy the initial detection model into checkpoint_dir
 		for i in xrange(len(clfs)):
 			shutil.copy2( whole_directory + str(args.past) + '_' + str(i) + '.model' , checkpoint_dir )
 
-	for i in xrange(len(clfs)):
+
+	for i in xrange(len(clfs)): # for each model in the model pool
 
 		clfs[i].load( checkpoint_dir + str(args.past) + '_' + str(i) + '.model')
 		# get original model weight
@@ -189,8 +230,6 @@ def main():
 			weight.append(w[w_num])
 		weights.append(weight)
 
-		test_accuracy,auc,tpr_fig,fpr_fig=clfs[i].score(X_test,Y_test,False)
-		ori_test_acc.append(test_accuracy)
 
 	print 'original weight size'
 	for c in xrange(len(weights)):
@@ -198,10 +237,14 @@ def main():
 
 	print 'App buffer generation'
 	global app_buffer
-	app_buffer = [] 
+	app_buffer = []
+
 	if '2011' in str(args.past): # buffer is not exist
 		print 'App buffer not exists'
 		print 'App buffer initialization'
+
+		print 'Loading data from ', args.past, ' to initialize app buffer ...' # load the 2011 data to initialized app buffer
+		X_train,Y_train=load_svmlight_file( str(args.past) + '.libsvm')
 		train_size, _  = X_train.shape
 
 		random_app_index = np.random.randint(train_size, size = buffer_size)
@@ -212,6 +255,7 @@ def main():
 			for j  in xrange(len(clfs)):
 				app_buffer_temp.append(clfs[j].decision_function(X_train_temp[i])[0])
 			app_buffer.append(app_buffer_temp)
+
 	else: # load buffer from str(args.past).buffer
 		print 'App buffer exists'
 		app_buffer = pkl.load(open( checkpoint_dir + str(args.past) + '_buffer.pkl', 'rb'))
@@ -219,18 +263,54 @@ def main():
 
 	print 'Start evolving'
 	global confidences, new_confidences, p_values, instances, model_credits, model_confidences
-	confidences, new_confidences, p_values, instances, model_credits, model_confidences = ([] for i in range(6))
+	confidences, new_confidences, p_values, instances, model_credits, model_confidences = ([] for list_number in range(6))
 	all_fail = 0 # a special case, all model are aged
 	num_of_update = num_of_update_model =  0
 	wrong_update = 0
 	wrong_update_benign = wrong_update_malicious = right_update_benign = right_update_malicious = 0
 
-	for i in xrange(len(Y_test)): # i = every app
+	Y_test = [] # save ground truth of test data ; for final evaluation only
 
-		pre, conf, new_conf, app_b, p_value = ([] for i in range(5))
+	names = ['---list of test app names -----'] # names of apps developed in the current_year, e.g., names of apps developed in 2012
+	for i in xrange(len(names)):
+
+		# generate test data
+
+		app_name = names[i] # for each test app
+		# according to the ground truth to get the true label
+		# the true label is for evaluation only, won't be processed by the model
+		data = []
+		if 'malicious' in app_name:
+
+			d, new_feature = extract_malicious(app_name)
+			data.append(d)
+		else:
+			d, new_feature = extract_benign(app_name)
+			data.append(d)
+
+		# skip if do not need to save test data
+		save_data = open(app_name + '.libsvm', 'w')
+		for item in data:
+			save_data.writelines(item)
+			save_data.writelines('\n')
+		data_file.close()
+
+
+		X_test, y_t=load_svmlight_file(app_name + '.libsvm')
+		X_testt,y_testt=load_svmlight_file(app_name + '.libsvm')
+		Y_test.append(y_t)
+
+		print 'X_test data shape', type(X_test), X_test.shape
+		xtest_dense = scipy.sparse.csr_matrix(X_testt).todense()
+		print 'X_test', xtest_dense.shape	
+
+
+		# calculate JI value
+
+		pre, conf, new_conf, app_b, p_value = ([] for list_number in range(5))
 
 		for j in xrange(len(clfs)):
-			xtest_current = xtest_dense[i, :len(weights[j])] 
+			xtest_current = xtest_dense[ ,:len(weights[j])] 
 			score = xtest_current.dot(weights[j])
 			conf.append(score[0,0])
 			app_b.append(score[0,0])
@@ -238,13 +318,13 @@ def main():
 
 		confidences.append(conf)
 		new_confidences.append(new_conf)
-		app_buffer[random.randint(0, buffer_size-1)] = app_b # randomly replace a processed app with new app
+		app_buffer[random.randint(0, buffer_size-1)] = app_b # randomly replace a processed app with the new app
 
 
 		for j in xrange(len(clfs)):
 			pv = metric_calculation(i, j, buffer_size)
 			p_value.append(pv)
-		p_values.append(p_value)
+		p_values.append(p_value) 
 
 
 		global aged_model
@@ -255,26 +335,25 @@ def main():
 		# generate  pseudo label
 		generate_pseudo_label(aged_marker, young_marker, aged_value, young_value)
 
+		# drifting app is identified and young model exists
+		if (aged_marker != 0) and (young_marker >= 1): 
 
-		# update aged models
-		if (aged_marker != 0) and (young_marker >= 1): # drifting app is identified and young model exists
+			update_label = np.array([instances[i].pl]) # update label = pseudo label of the drifting app
 
-			update_label = np.array([instances[i].pl]) 
-			update_with_pseudo_label += 1
-
-			for model_index in aged_model: # update clfs[a] with X_test[i], temp.pl; a is the aged model index
-				num_of_update_model += 1
-
+			# update aged models
+			for model_index in aged_model: # update clfs[a] with X_test, update_label; a is the aged model index
 				# update with drifting app and corresponding pseudo label
-				train_accuracy,data,err,fit_time=clfs[model_index].fit(X_test[i],update_label, False)
+				train_accuracy,data,err,fit_time=clfs[model_index].fit(X_test,update_label, False)
 				w = clfs[model_index].coef_[1:] 
 				updated_w = []
 				for w_num in xrange(len(w)):
 					updated_w.append(w[w_num])
-				weights[model_index] = updated_w
+				weights[model_index] = updated_w # update weight matrix in the weight matrix list for the next new app
 
+			# updat feature set
+			for new_identified_feature in new_feature:
+				features.append(new_identified_feature)
 
-	print 'update with pseudo label ', update_with_pseudo_label
 
 	a, f, preci, tprr, fprr = evaluation(Y_test, instances)
 	pool_acc.append(a)
@@ -286,29 +365,30 @@ def main():
 
 
 	print buffer_size, len(app_buffer)
-	print 'original test accuracy',ori_test_acc # without evolving
 	print 'pool accuracy', pool_acc
 	print 'pool fscore', pool_fscore
 	print 'pool precision', pool_precision
 	print 'pool tpr', pool_tpr
 	print 'pool fnr', pool_fnr
 	print 'pool fpr', pool_fpr
-	print 'pool_fnr - pool_fpr', pool_difference
 
 	print 'evolved weight length'
 	for c in xrange(len(weights)):
 		print c, len(weights[c])
 
+	# save evolved model for each year
 	print 'Save model evolved in Year ', args.current, 'into directory /', checkpoint_dir
 	current_year = args.current
 	save_model(current_year, checkpoint_dir)
 
+
+	# save feature set
+	with open('feature_set.pkl','wb') as feature_result:
+		pkl.dump(features, feature_result)
+
 	print 'Save app buffer evolved in Year', args.current
 	pkl.dump(app_buffer, open( checkpoint_dir + str(args.current) + '_buffer.pkl', 'wb'))
 
-	evolving_result.append(str(pool_acc) + ' ' + str(pool_fscore) + ' ' + str(pool_precision) + ' ' + str(pool_tpr) + ' ' + str(pool_fnr))
-	Result.writelines(evolving_result)
-	Result.writelines('\n')
 
 if __name__ == "__main__":
 	main()
