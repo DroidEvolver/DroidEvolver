@@ -1,30 +1,36 @@
 # DroidEvolver
-We would like to demonstrate that this is only the raw version of the code for the core modules of DroidEvolver. We are doing code cleanup and adding comments to improve code readability. All code will be uploaded soon.
 
-Available code:
-
-1. Model pool construction
-2. Classification and evolvement
-
-Upcoming:
-
-1. Preprocessor
-2. Feature extraction
-3. Vector generation
- 
  Requirements:
  
  Pylibol, scipy == 1.1.0, numpy ==1.15.2
 
 To use:
 
-1. Model pool construction
+STEP 1:
 
-python model_pool_construction.py --starting s
+python feature_extraction.py
 
-s = directory of initialization data
+Extract all detection features from applications
 
-2. Classification and evovement
+STEP 2:
+
+python feature_set_initialization.py
+
+Initialize the feature set according to initialization dataset
+
+STEP 3:
+
+python vector_generation.py
+
+Generate feature vector for the initialization dataset
+
+STEP 4:
+
+python model_pool_construction.py
+
+Initialize the mode pool using the feature vector of the initialization feature vector
+
+STEP 5:
 
 python classification_evolvement.py --past p --current c --starting s --low l --high h --buffer b
 
