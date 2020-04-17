@@ -3,7 +3,7 @@ Use the model pool initialized with 2011 apps to detect malware from apps develo
 Model pool and feature set (i.e., feature_set.pkl) are evolved during detection.
 
 '''
-
+import pylibol
 import numpy as np
 import scipy
 from scipy.stats import logistic
@@ -16,6 +16,7 @@ import sys
 import string
 from decimal import *
 import collections
+from pylibol import classifiers
 from classifiers import *
 import time
 import random
