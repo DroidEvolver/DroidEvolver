@@ -2,6 +2,7 @@
 Construct model pool according to initialization dataset, e.g., apps developed in 2011
 
 '''
+import pylibol
 import numpy as np
 import scipy
 from scipy.stats import logistic
@@ -14,6 +15,7 @@ import sys
 import string
 from decimal import *
 import collections
+from pylibol import classifiers
 from classifiers import *
 import time
 import random
